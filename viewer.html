@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Animated Card Viewer — Blank Card Paradox</title>
+  <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+    :root {
+      --cream:#FAF7F0; --navy:#1a1a2e; --orange:#d35400;
+      --teal:#16a085; --gold:#f39c12; --red:#e74c3c;
+      --serif:'Crimson Pro',serif; --mono:'Space Mono',monospace;
+    }
+    body { font-family:var(--serif); background:#0d0d1a; color:var(--cream); overflow-x:hidden; }
+
+    nav {
+      position:fixed; top:0; left:0; right:0; z-index:200;
+      display:flex; align-items:center; justify-content:space-between;
+      padding:16px 48px;
+      background:rgba(13,13,26,0.98); backdrop-filter:blur(14px);
+      border-bottom:1px solid rgba(255,255,255,0.08);
+    }
+    .logo { font-family:var(--mono); font-size:0.72rem; color:var(--gold); letter-spacing:.18em; text-transform:uppercase; text-decoration:none; }
+    .nav-links { display:flex; gap:28px; list-style:none; }
+    .nav-links a { font-family:var(--mono); font-size:.68rem; color:rgba(250,247,240,.55); text-decoration:none; letter-spacing:.1em; text-transform:uppercase; transition:color .2s; }
+    .nav-links a:hover { color:var(--gold); }
+
+    .viewer-wrap { max-width:1200px; margin:0 auto; padding:100px 32px 60px; }
+
+    .viewer-header { text-align:center; margin-bottom:48px; }
+    .viewer-header .etag { font-family:var(--mono); font-size:.68rem; letter-spacing:.2em; text-transform:uppercase; color:var(--gold); display:block; margin-bottom:14px; }
+    .viewer-header h1 { font-size:clamp(1.8rem,4vw,3rem); font-weight:700; margin-bottom:14px; }
+    .viewer-header p { font-size:1.1rem; opacity:.68; max-width:600px; margin:0 auto; line-height:1.7; }
+
+    /* CONTROLS */
+    .controls-panel {
+      background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.1);
+      border-radius:14px; padding:28px 32px; margin-bottom:28px;
+      display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:20px;
+    }
+    .ctrl-group label { font-family:var(--mono); font-size:.6rem; letter-spacing:.16em; text-transform:uppercase; color:rgba(250,247,240,.5); display:block; margin-bottom:8px; }
+    .ctrl-group select, .ctrl-group input[type=range] {
+      width:100%; background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.14);
+      border-radius:6px; color:var(--cream); font-family:var(--mono); font-size:.75rem;
+      padding:8px 12px; appearance:none; cursor:pointer; outline:none; transition:border-color .2s;
+    }
+    .ctrl-group select:hover, .ctrl-group select:focus { border-color:var(--gold); }
+    .speed-val { font-family:var(--mono); font-size:.75rem; color:var(--gold); text-align:center; margin-top:6px; }
+
+    /* PLAYBACK */
+    .playback {
+      display:flex; align-items:center; justify-content:center; gap:14px;
+      background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.09);
+      border-radius:12px; padding:20px 32px; margin-bottom:28px; flex-wrap:wrap;
+    }
+    .pb-btn {
+      width:44px; height:44px; border-radius:50%; border:1.5px solid rgba(255,255,255,.2);
+      background:transparent; color:var(--cream); font-size:1.1rem; cursor:pointer;
+      display:flex; align-items:center; justify-content:center; transition:all .18s;
+    }
+    .pb-btn:hover { border-color:var(--gold); color:var(--gold); background:rgba(243,156,18,.08); }
+    .pb-btn.play-btn { width:52px; height:52px; background:var(--orange); border-color:var(--orange); font-size:1.3rem; }
+    .pb-btn.play-btn:hover { background:#b84a00; border-color:#b84a00; color:var(--cream); }
+    .step-counter { font-family:var(--mono); font-size:.8rem; color:rgba(250,247,240,.6); min-width:120px; text-align:center; }
+
+    /* PROGRESS BAR */
+    .progress-wrap { height:4px; background:rgba(255,255,255,.1); border-radius:2px; margin-bottom:28px; cursor:pointer; position:relative; }
+    .progress-fill { height:100%; background:var(--gold); border-radius:2px; transition:width .15s; pointer-events:none; }
+
+    /* INFO BAR */
+    .info-bar {
+      display:flex; gap:16px; flex-wrap:wrap; margin-bottom:24px;
+    }
+    .info-chip {
+      background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.12);
+      border-radius:20px; padding:8px 16px;
+      font-family:var(--mono); font-size:.65rem; letter-spacing:.08em;
+    }
+    .info-chip span { color:var(--gold); }
+    .move-msg { font-size:1rem; line-height:1.6; padding:12px 18px; background:rgba(22,160,133,.12); border:1px solid rgba(22,160,133,.25); border-radius:8px; color:rgba(250,247,240,.85); font-style:italic; margin-bottom:20px; min-height:48px; }
+
+    /* GRID */
+    .grid-section { }
+    .grid-title { font-family:var(--mono); font-size:.65rem; letter-spacing:.14em; text-transform:uppercase; color:rgba(250,247,240,.45); margin-bottom:12px; }
+    .card-grid {
+      display:grid; grid-template-columns:repeat(8,1fr);
+      gap:5px; background:rgba(255,255,255,.03); border-radius:12px;
+      border:1px solid rgba(255,255,255,.08); padding:16px;
+    }
+    .grid-cell {
+      aspect-ratio:3/4; border-radius:6px;
+      background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08);
+      display:flex; align-items:center; justify-content:center;
+      font-size:clamp(.7rem,1.4vw,1rem); font-weight:700; font-family:var(--mono);
+      transition:all .35s cubic-bezier(.34,1.56,.64,1);
+      position:relative; overflow:hidden;
+    }
+    .grid-cell.occupied { background:rgba(255,255,255,.1); border-color:rgba(255,255,255,.22); }
+    .grid-cell.king { background:linear-gradient(135deg,rgba(211,84,0,.35),rgba(211,84,0,.15)); border-color:var(--orange); color:var(--orange); }
+    .grid-cell.queen { background:linear-gradient(135deg,rgba(22,160,133,.35),rgba(22,160,133,.15)); border-color:var(--teal); color:var(--teal); }
+    .grid-cell.jack { background:linear-gradient(135deg,rgba(243,156,18,.35),rgba(243,156,18,.15)); border-color:var(--gold); color:var(--gold); }
+    .grid-cell.blank {
+      border-color:rgba(155,89,182,.5); color:rgba(155,89,182,.9);
+      background: repeating-linear-gradient(45deg,rgba(155,89,182,.06),rgba(155,89,182,.06) 4px,rgba(155,89,182,.12) 4px,rgba(155,89,182,.12) 8px);
+    }
+    .grid-cell.latest {
+      box-shadow:0 0 0 2px var(--gold), 0 0 16px rgba(243,156,18,.5);
+      border-color:var(--gold); z-index:2;
+      animation:goldPop .4s cubic-bezier(.34,1.56,.64,1);
+    }
+    @keyframes goldPop { 0%{transform:scale(.7);opacity:.4} 100%{transform:scale(1);opacity:1} }
+
+    /* LEGEND */
+    .legend { display:flex; gap:20px; flex-wrap:wrap; margin-top:18px; }
+    .leg-item { display:flex; align-items:center; gap:8px; font-family:var(--mono); font-size:.62rem; letter-spacing:.06em; color:rgba(250,247,240,.55); }
+    .leg-dot { width:14px; height:14px; border-radius:3px; border:1.5px solid; }
+
+    @media(max-width:700px){
+      nav { padding:14px 18px; }
+      .nav-links { display:none; }
+      .viewer-wrap { padding:80px 16px 40px; }
+      .controls-panel { grid-template-columns:1fr 1fr; }
+      .card-grid { gap:3px; padding:10px; }
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <a href="index.html" class="logo">← Blank Card Research</a>
+  <ul class="nav-links">
+    <li><a href="index.html">Home</a></li>
+    <li><a href="research.html">Research Story</a></li>
+    <li><a href="viewer.html" style="color:var(--gold);">Card Viewer</a></li>
+  </ul>
+</nav>
+
+<div class="viewer-wrap">
+  <div class="viewer-header">
+    <span class="etag">🎬 Animated Card Grid Viewer</span>
+    <h1>Watch Card Movements Step by Step</h1>
+    <p>See how participants placed cards across the 8×8 grid. Gold glow = latest move. Striped purple = blank card.</p>
+  </div>
+
+  <!-- Controls -->
+  <div class="controls-panel">
+    <div class="ctrl-group">
+      <label>Condition Filter</label>
+      <select id="condFilter">
+        <option value="ALL">All Conditions</option>
+        <option value="KQJB">KQJB (Blank + Jack available)</option>
+        <option value="KQB">KQB (Blank, no Jack)</option>
+        <option value="KQJ">KQJ (Jack, no Blank)</option>
+        <option value="KQ">KQ (Basic)</option>
+      </select>
+    </div>
+    <div class="ctrl-group">
+      <label>Blank Card Usage</label>
+      <select id="blankFilter">
+        <option value="ALL">All Participants</option>
+        <option value="YES">Used Blank Cards</option>
+        <option value="NO">Did Not Use Blanks</option>
+      </select>
+    </div>
+    <div class="ctrl-group">
+      <label>Outcome Filter</label>
+      <select id="outcomeFilter">
+        <option value="ALL">All Outcomes</option>
+        <option value="YES">Successful Only</option>
+        <option value="NO">Failed Only</option>
+      </select>
+    </div>
+    <div class="ctrl-group">
+      <label>Participant</label>
+      <select id="participantSel"></select>
+    </div>
+    <div class="ctrl-group">
+      <label>Trial</label>
+      <select id="trialSel"></select>
+    </div>
+    <div class="ctrl-group">
+      <label>Animation Speed — <span id="speedVal">Medium</span></label>
+      <input type="range" id="speedSlider" min="1" max="5" value="3">
+    </div>
+  </div>
+
+  <!-- Playback -->
+  <div class="playback">
+    <button class="pb-btn" id="btnReset" title="Reset">⏮</button>
+    <button class="pb-btn" id="btnStepBack" title="Step back">⏪</button>
+    <button class="pb-btn play-btn" id="btnPlay" title="Play">▶</button>
+    <button class="pb-btn" id="btnPause" title="Pause">⏸</button>
+    <button class="pb-btn" id="btnStepFwd" title="Step forward">⏩</button>
+    <span class="step-counter" id="stepCounter">Step 0 / 0</span>
+  </div>
+
+  <!-- Progress bar -->
+  <div class="progress-wrap" id="progressWrap">
+    <div class="progress-fill" id="progressFill" style="width:0%"></div>
+  </div>
+
+  <!-- Info chips -->
+  <div class="info-bar" id="infoBar">
+    <div class="info-chip">Participant: <span id="chipP">—</span></div>
+    <div class="info-chip">Condition: <span id="chipCond">—</span></div>
+    <div class="info-chip">Used Blank: <span id="chipBlank">—</span></div>
+    <div class="info-chip">Outcome: <span id="chipOutcome">—</span></div>
+    <div class="info-chip">Rows / Cols: <span id="chipAcc">—</span></div>
+    <div class="info-chip">Moves / Speed: <span id="chipSpeed">—</span></div>
+  </div>
+  <div class="move-msg" id="moveMsg">Select a participant to begin the animation.</div>
+
+  <!-- Grid -->
+  <div class="grid-section">
+    <div class="grid-title">🎬 Animated Card Placement — Gold glow = latest move &nbsp;|&nbsp; Striped purple = blank card</div>
+    <div class="card-grid" id="cardGrid"></div>
+    <div class="legend">
+      <div class="leg-item"><div class="leg-dot" style="background:rgba(211,84,0,.4);border-color:var(--orange)"></div>King</div>
+      <div class="leg-item"><div class="leg-dot" style="background:rgba(22,160,133,.4);border-color:var(--teal)"></div>Queen</div>
+      <div class="leg-item"><div class="leg-dot" style="background:rgba(243,156,18,.4);border-color:var(--gold)"></div>Jack</div>
+      <div class="leg-item"><div class="leg-dot" style="background:repeating-linear-gradient(45deg,rgba(155,89,182,.2),rgba(155,89,182,.2) 3px,transparent 3px,transparent 6px);border-color:rgba(155,89,182,.6)"></div>Blank Card</div>
+      <div class="leg-item"><div class="leg-dot" style="background:transparent;border-color:rgba(255,255,255,.2)"></div>Empty</div>
+    </div>
+  </div>
+</div>
+
+<script src="data.js"></script>
+<script>
+const participants = (window.CARDIEE_DATA?.participants || []).slice().sort((a, b) => a.id - b.id);
+
+let currentParticipant = null;
+let currentStep = 0;
+let playInterval = null;
+let isPlaying = false;
+const SPEEDS = [2000, 1200, 700, 400, 180];
+
+const condFilter = document.getElementById('condFilter');
+const blankFilter = document.getElementById('blankFilter');
+const outcomeFilter = document.getElementById('outcomeFilter');
+const participantSel = document.getElementById('participantSel');
+const trialSel = document.getElementById('trialSel');
+const speedSlider = document.getElementById('speedSlider');
+const speedVal = document.getElementById('speedVal');
+const btnPlay = document.getElementById('btnPlay');
+const btnPause = document.getElementById('btnPause');
+const btnReset = document.getElementById('btnReset');
+const btnStepFwd = document.getElementById('btnStepFwd');
+const btnStepBack = document.getElementById('btnStepBack');
+const stepCounter = document.getElementById('stepCounter');
+const progressFill = document.getElementById('progressFill');
+const progressWrap = document.getElementById('progressWrap');
+const moveMsg = document.getElementById('moveMsg');
+const cardGrid = document.getElementById('cardGrid');
+const chipP = document.getElementById('chipP');
+const chipCond = document.getElementById('chipCond');
+const chipBlank = document.getElementById('chipBlank');
+const chipOutcome = document.getElementById('chipOutcome');
+const chipAcc = document.getElementById('chipAcc');
+const chipSpeed = document.getElementById('chipSpeed');
+
+const cells = [];
+for (let i = 0; i < 64; i++) {
+  const cell = document.createElement('div');
+  cell.className = 'grid-cell';
+  cell.dataset.row = Math.floor(i / 8);
+  cell.dataset.col = i % 8;
+  cardGrid.appendChild(cell);
+  cells.push(cell);
+}
+
+function getCellIdx(row, col) {
+  return row * 8 + col;
+}
+
+function clearGrid() {
+  cells.forEach(cell => {
+    cell.className = 'grid-cell';
+    cell.textContent = '';
+  });
+}
+
+function renderPlacements(placements, latestCell = null) {
+  clearGrid();
+  placements.forEach(move => {
+    if (move.offGrid) return;
+    const cell = cells[getCellIdx(move.row, move.col)];
+    cell.textContent = move.label;
+    cell.className = 'grid-cell occupied';
+    if (move.card === 'king') cell.classList.add('king');
+    else if (move.card === 'queen') cell.classList.add('queen');
+    else if (move.card === 'jack') cell.classList.add('jack');
+    else if (move.card === 'blank') cell.classList.add('blank');
+    if (latestCell && latestCell.row === move.row && latestCell.col === move.col) cell.classList.add('latest');
+  });
+}
+
+function getCurrentMoves() {
+  return currentParticipant?.moves || [];
+}
+
+function getFiltered() {
+  return participants.filter(participant => {
+    if (condFilter.value !== 'ALL' && participant.condition !== condFilter.value) return false;
+    if (blankFilter.value === 'YES' && !participant.usedBlank) return false;
+    if (blankFilter.value === 'NO' && participant.usedBlank) return false;
+    if (outcomeFilter.value === 'YES' && !participant.success) return false;
+    if (outcomeFilter.value === 'NO' && participant.success) return false;
+    return true;
+  });
+}
+
+function populateParticipants() {
+  stopPlay();
+  const filtered = getFiltered();
+  participantSel.innerHTML = '';
+  filtered.forEach(participant => {
+    const option = document.createElement('option');
+    option.value = participant.id;
+    option.textContent = `P${participant.id} · ${participant.condition}${participant.usedBlank ? ' · Blank✓' : ''}${participant.success ? ' · ✅' : ' · ❌'}`;
+    participantSel.appendChild(option);
+  });
+  if (filtered.length) loadParticipant(filtered[0].id);
+  else {
+    currentParticipant = null;
+    clearGrid();
+    moveMsg.textContent = 'No participants match filters.';
+    stepCounter.textContent = 'Step 0 / 0';
+    progressFill.style.width = '0%';
+  }
+}
+
+function populateTrials() {
+  trialSel.innerHTML = '';
+  if (!currentParticipant) return;
+  const option = document.createElement('option');
+  option.value = 0;
+  option.textContent = `Recorded sequence (${getCurrentMoves().length} moves)`;
+  trialSel.appendChild(option);
+}
+
+function loadParticipant(pid) {
+  stopPlay();
+  currentParticipant = participants.find(participant => participant.id == pid);
+  if (!currentParticipant) return;
+  participantSel.value = pid;
+  populateTrials();
+  trialSel.value = 0;
+  currentStep = 0;
+  updateInfoChips();
+  renderCurrentStep();
+}
+
+function renderCurrentStep() {
+  if (!currentParticipant) return;
+  const moves = getCurrentMoves();
+  const total = moves.length;
+
+  if (!total && currentParticipant.finalLayout?.length) {
+    renderPlacements(currentParticipant.finalLayout);
+    stepCounter.textContent = 'Final layout only';
+    progressFill.style.width = '100%';
+    moveMsg.textContent = 'This participant has final board data but no recorded move sequence.';
+    return;
+  }
+
+  if (!total) {
+    clearGrid();
+    stepCounter.textContent = 'Step 0 / 0';
+    progressFill.style.width = '0%';
+    moveMsg.textContent = 'No move sequence is available for this participant.';
+    return;
+  }
+
+  const visibleStep = Math.max(0, Math.min(currentStep, total - 1));
+  const latestMove = moves[visibleStep];
+  const reachedEnd = visibleStep >= total - 1;
+
+  if (reachedEnd && currentParticipant.finalLayout?.length) renderPlacements(currentParticipant.finalLayout, latestMove);
+  else renderPlacements(moves.slice(0, visibleStep + 1), latestMove);
+
+  stepCounter.textContent = `Step ${visibleStep + 1} / ${total}`;
+  progressFill.style.width = total > 1 ? `${(visibleStep / (total - 1)) * 100}%` : '100%';
+
+  const cardName = { king: 'King', queen: 'Queen', jack: 'Jack', blank: 'Blank card' }[latestMove.card] || latestMove.card;
+  if (latestMove.offGrid) {
+    moveMsg.textContent = `Move ${visibleStep + 1}: ${cardName} moved off the grid.`;
+  } else if (reachedEnd && currentParticipant.finalLayout?.length) {
+    moveMsg.textContent = `Move ${visibleStep + 1}: ${cardName} at ${latestMove.cell}. Final board now shows the recorded end state, including blank cards where available.`;
+  } else {
+    moveMsg.textContent = `Move ${visibleStep + 1}: Placed ${cardName} at row ${latestMove.row + 1}, column ${latestMove.col + 1}.`;
+  }
+}
+
+function updateInfoChips() {
+  if (!currentParticipant) return;
+  chipP.textContent = `P${currentParticipant.id}`;
+  chipCond.textContent = currentParticipant.condition;
+  chipBlank.textContent = currentParticipant.usedBlank ? 'Yes ✓' : 'No';
+  chipOutcome.textContent = currentParticipant.success ? 'Success ✅' : 'Failed ❌';
+  chipAcc.textContent = `${currentParticipant.rowCorrect ? 'Row ✓' : 'Row ✗'} / ${currentParticipant.colCorrect ? 'Col ✓' : 'Col ✗'}`;
+  const speed = currentParticipant.speedMovesPerSecond ? `${currentParticipant.speedMovesPerSecond} moves/s` : 'n/a';
+  chipSpeed.textContent = `${currentParticipant.moveCount} / ${speed}`;
+}
+
+const speedLabels = ['Very Slow', 'Slow', 'Medium', 'Fast', 'Very Fast'];
+speedSlider.addEventListener('input', () => {
+  speedVal.textContent = speedLabels[speedSlider.value - 1];
+  if (isPlaying) {
+    stopPlay();
+    startPlay();
+  }
+});
+
+function startPlay() {
+  if (!currentParticipant) return;
+  isPlaying = true;
+  const delay = SPEEDS[speedSlider.value - 1];
+  playInterval = setInterval(() => {
+    const moves = getCurrentMoves();
+    if (currentStep >= moves.length - 1) {
+      stopPlay();
+      return;
+    }
+    currentStep++;
+    renderCurrentStep();
+  }, delay);
+}
+
+function stopPlay() {
+  isPlaying = false;
+  clearInterval(playInterval);
+  playInterval = null;
+}
+
+btnPlay.addEventListener('click', () => {
+  stopPlay();
+  startPlay();
+});
+btnPause.addEventListener('click', stopPlay);
+btnReset.addEventListener('click', () => {
+  stopPlay();
+  currentStep = 0;
+  renderCurrentStep();
+});
+btnStepFwd.addEventListener('click', () => {
+  stopPlay();
+  const moves = getCurrentMoves();
+  if (currentStep < moves.length - 1) {
+    currentStep++;
+    renderCurrentStep();
+  }
+});
+btnStepBack.addEventListener('click', () => {
+  stopPlay();
+  if (currentStep > 0) {
+    currentStep--;
+    renderCurrentStep();
+  }
+});
+
+progressWrap.addEventListener('click', event => {
+  stopPlay();
+  const moves = getCurrentMoves();
+  if (!moves.length) return;
+  const pct = event.offsetX / progressWrap.offsetWidth;
+  currentStep = Math.round(pct * (moves.length - 1));
+  renderCurrentStep();
+});
+
+condFilter.addEventListener('change', populateParticipants);
+blankFilter.addEventListener('change', populateParticipants);
+outcomeFilter.addEventListener('change', populateParticipants);
+participantSel.addEventListener('change', () => loadParticipant(participantSel.value));
+trialSel.addEventListener('change', () => {
+  stopPlay();
+  currentStep = 0;
+  renderCurrentStep();
+});
+
+speedVal.textContent = speedLabels[speedSlider.value - 1];
+populateParticipants();
+</script>
+</body>
+</html>
